@@ -1,0 +1,229 @@
+Loaded Neural Policy v2 from /app/phase_5/src/nn/../../models/imitation_v3.pt
+Starting debug match...
+--- TURN ---
+Options:
+  0: {'type': 1}
+  1: {'type': 2}
+>>> CHOSE: [1]
+--- TURN ---
+Options:
+  0: {'type': 3, 'area': 2, 'index': 4, 'playerIndex': 0}
+>>> CHOSE: [0]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 1}
+  1: {'type': 8, 'area': 2, 'index': 2, 'inPlayArea': 4, 'inPlayIndex': 0}
+  2: {'type': 7, 'index': 3}
+  3: {'type': 13, 'attackId': 323}
+  4: {'type': 14}
+>>> CHOSE: [2]
+--- TURN ---
+Options:
+  0: {'type': 3, 'area': 1, 'index': 9, 'playerIndex': 0}
+  1: {'type': 3, 'area': 1, 'index': 27, 'playerIndex': 0}
+  2: {'type': 3, 'area': 1, 'index': 40, 'playerIndex': 0}
+  3: {'type': 3, 'area': 1, 'index': 42, 'playerIndex': 0}
+>>> CHOSE: [0, 1]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 1}
+  1: {'type': 8, 'area': 2, 'index': 2, 'inPlayArea': 4, 'inPlayIndex': 0}
+  2: {'type': 8, 'area': 2, 'index': 2, 'inPlayArea': 5, 'inPlayIndex': 0}
+  3: {'type': 8, 'area': 2, 'index': 2, 'inPlayArea': 5, 'inPlayIndex': 1}
+  4: {'type': 13, 'attackId': 323}
+  5: {'type': 12}
+  6: {'type': 14}
+>>> CHOSE: [2]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 1}
+  1: {'type': 13, 'attackId': 323}
+  2: {'type': 12}
+  3: {'type': 14}
+>>> CHOSE: [0]
+--- TURN ---
+Options:
+  0: {'type': 3, 'area': 1, 'index': 6, 'playerIndex': 0}
+  1: {'type': 3, 'area': 1, 'index': 16, 'playerIndex': 0}
+  2: {'type': 3, 'area': 1, 'index': 21, 'playerIndex': 0}
+  3: {'type': 3, 'area': 1, 'index': 26, 'playerIndex': 0}
+  4: {'type': 3, 'area': 1, 'index': 36, 'playerIndex': 0}
+>>> CHOSE: [1]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 4}
+  1: {'type': 13, 'attackId': 323}
+  2: {'type': 12}
+  3: {'type': 14}
+>>> CHOSE: [0]
+--- TURN ---
+Options:
+  0: {'type': 13, 'attackId': 323}
+  1: {'type': 12}
+  2: {'type': 14}
+>>> CHOSE: [0]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 4}
+  1: {'type': 13, 'attackId': 323}
+  2: {'type': 12}
+  3: {'type': 14}
+>>> CHOSE: [1]
+--- TURN ---
+Options:
+  0: {'type': 3, 'area': 5, 'index': 0, 'playerIndex': 0}
+  1: {'type': 3, 'area': 5, 'index': 1, 'playerIndex': 0}
+>>> CHOSE: [0]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 0}
+  1: {'type': 7, 'index': 1}
+  2: {'type': 7, 'index': 2}
+  3: {'type': 7, 'index': 3}
+  4: {'type': 7, 'index': 4}
+  5: {'type': 8, 'area': 2, 'index': 5, 'inPlayArea': 4, 'inPlayIndex': 0}
+  6: {'type': 8, 'area': 2, 'index': 5, 'inPlayArea': 5, 'inPlayIndex': 0}
+  7: {'type': 13, 'attackId': 150}
+  8: {'type': 12}
+  9: {'type': 14}
+>>> CHOSE: [2]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 0}
+  1: {'type': 7, 'index': 1}
+  2: {'type': 7, 'index': 2}
+  3: {'type': 7, 'index': 3}
+  4: {'type': 8, 'area': 2, 'index': 4, 'inPlayArea': 4, 'inPlayIndex': 0}
+  5: {'type': 8, 'area': 2, 'index': 4, 'inPlayArea': 5, 'inPlayIndex': 0}
+  6: {'type': 13, 'attackId': 150}
+  7: {'type': 12}
+  8: {'type': 14}
+>>> CHOSE: [4]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 0}
+  1: {'type': 7, 'index': 1}
+  2: {'type': 7, 'index': 2}
+  3: {'type': 7, 'index': 3}
+  4: {'type': 13, 'attackId': 150}
+  5: {'type': 12}
+  6: {'type': 14}
+>>> CHOSE: [3]
+--- TURN ---
+Options:
+  0: {'type': 3, 'area': 1, 'index': 6, 'playerIndex': 0}
+  1: {'type': 3, 'area': 1, 'index': 10, 'playerIndex': 0}
+  2: {'type': 3, 'area': 1, 'index': 12, 'playerIndex': 0}
+  3: {'type': 3, 'area': 1, 'index': 16, 'playerIndex': 0}
+  4: {'type': 3, 'area': 1, 'index': 18, 'playerIndex': 0}
+  5: {'type': 3, 'area': 1, 'index': 19, 'playerIndex': 0}
+  6: {'type': 3, 'area': 1, 'index': 27, 'playerIndex': 0}
+>>> CHOSE: [2]
+--- TURN ---
+Options:
+  0: {'type': 3, 'area': 1, 'index': 10, 'playerIndex': 0}
+  1: {'type': 3, 'area': 1, 'index': 15, 'playerIndex': 0}
+  2: {'type': 3, 'area': 1, 'index': 26, 'playerIndex': 0}
+>>> CHOSE: [0]
+--- TURN ---
+Options:
+  0: {'type': 3, 'area': 4, 'index': 0, 'playerIndex': 0}
+  1: {'type': 3, 'area': 5, 'index': 0, 'playerIndex': 0}
+>>> CHOSE: [1]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 0}
+  1: {'type': 7, 'index': 1}
+  2: {'type': 7, 'index': 2}
+  3: {'type': 8, 'area': 2, 'index': 3, 'inPlayArea': 4, 'inPlayIndex': 0}
+  4: {'type': 8, 'area': 2, 'index': 3, 'inPlayArea': 5, 'inPlayIndex': 0}
+  5: {'type': 13, 'attackId': 150}
+  6: {'type': 12}
+  7: {'type': 14}
+>>> CHOSE: [3]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 0}
+  1: {'type': 7, 'index': 1}
+  2: {'type': 7, 'index': 2}
+  3: {'type': 13, 'attackId': 150}
+  4: {'type': 13, 'attackId': 151}
+  5: {'type': 12}
+  6: {'type': 14}
+>>> CHOSE: [1]
+--- TURN ---
+Options:
+  0: {'type': 3, 'area': 3, 'index': 2, 'playerIndex': 0}
+  1: {'type': 3, 'area': 3, 'index': 3, 'playerIndex': 0}
+>>> CHOSE: [0]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 0}
+  1: {'type': 7, 'index': 1}
+  2: {'type': 7, 'index': 2}
+  3: {'type': 13, 'attackId': 150}
+  4: {'type': 13, 'attackId': 151}
+  5: {'type': 12}
+  6: {'type': 14}
+>>> CHOSE: [2]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 0}
+  1: {'type': 7, 'index': 1}
+  2: {'type': 13, 'attackId': 150}
+  3: {'type': 13, 'attackId': 151}
+  4: {'type': 12}
+  5: {'type': 14}
+>>> CHOSE: [1]
+--- TURN ---
+Options:
+  0: {'type': 6, 'area': 4, 'index': 0, 'playerIndex': 1, 'energyIndex': 0, 'count': 1}
+  1: {'type': 6, 'area': 4, 'index': 0, 'playerIndex': 1, 'energyIndex': 1, 'count': 1}
+>>> CHOSE: [0]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 0}
+  1: {'type': 13, 'attackId': 150}
+  2: {'type': 13, 'attackId': 151}
+  3: {'type': 12}
+  4: {'type': 14}
+>>> CHOSE: [3]
+--- TURN ---
+Options:
+  0: {'type': 6, 'area': 4, 'index': 0, 'playerIndex': 0, 'energyIndex': 0, 'count': 1}
+  1: {'type': 6, 'area': 4, 'index': 0, 'playerIndex': 0, 'energyIndex': 1, 'count': 1}
+>>> CHOSE: [1]
+--- TURN ---
+Options:
+  0: {'type': 3, 'area': 5, 'index': 0, 'playerIndex': 0}
+  1: {'type': 3, 'area': 5, 'index': 1, 'playerIndex': 0}
+>>> CHOSE: [1]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 0}
+  1: {'type': 13, 'attackId': 323}
+  2: {'type': 14}
+>>> CHOSE: [1]
+--- TURN ---
+Options:
+  0: {'type': 3, 'area': 5, 'index': 0, 'playerIndex': 0}
+>>> CHOSE: [0]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 0}
+  1: {'type': 7, 'index': 1}
+  2: {'type': 13, 'attackId': 150}
+  3: {'type': 14}
+>>> CHOSE: [1]
+--- TURN ---
+Options:
+  0: {'type': 3, 'area': 5, 'index': 0, 'playerIndex': 1}
+  1: {'type': 3, 'area': 5, 'index': 1, 'playerIndex': 1}
+>>> CHOSE: [0]
+--- TURN ---
+Options:
+  0: {'type': 7, 'index': 0}
+  1: {'type': 13, 'attackId': 150}
+  2: {'type': 14}
+>>> CHOSE: [1]
+GAME OVER. Winner: 1

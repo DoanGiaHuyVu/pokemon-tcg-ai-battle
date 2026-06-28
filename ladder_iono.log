@@ -1,0 +1,27 @@
+Loaded Neural Policy v2 from /app/phase_5/src/nn/../../models/imitation_v2.pt
+
+============================================================
+  beam_search vs iono  (100 games)
+============================================================
+  Win Rate:        13.0% ± 6.6%
+  Wins/Losses:     13/87
+  Crashes:         0
+  Timeouts:        0
+  Avg Steps:       204.9
+  Avg Decision:    43.44 ms
+  p95 Decision:    97.47 ms
+  Max Decision:    247.13 ms
+  Fallback Rate:   4.7%
+  Search Begin:    5950 ok / 0 fail
+  Search Step:     41782 ok / 0 fail
+============================================================
+
+======================================================================
+  OPPONENT LADDER SUMMARY
+======================================================================
+  Opponent          Win Rate     CI 95%    Games    Crashes
+  -------------------------------------------------------
+  iono                13.0%      6.6%      100          0
+======================================================================
+
+Results saved to /app/phase_5/src/eval/ladder_results.json

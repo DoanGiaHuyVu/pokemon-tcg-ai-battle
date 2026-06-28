@@ -193,32 +193,84 @@ def score_state(state, your_index: int) -> float:
         if our_best_atk > 0 and opp_hp <= our_best_atk:
             score += 250.0  # Opponent in KO range
 
+    # ── Board Strength (Active + Bench) ──
+    # We want to encourage high HP, evolved Pokemon, and attached energy everywhere!
+    board_hp_score = 0.0
+    board_energy_score = 0.0
+    
+    all_my_pokemon = []
+    if my_state.active: all_my_pokemon.extend(my_state.active)
+    if my_state.bench: all_my_pokemon.extend(my_state.bench)
+    
+    for p in all_my_pokemon:
+        if not p: continue
+        # HP score
+        max_hp = getattr(p, 'hp', 70)
+        dmg = getattr(p, 'damage', 0)
+        board_hp_score += (max_hp - dmg) * 0.5
+        
+        # Evolution score
+        stage = getattr(p, 'stage', 0)
+        if stage == 1: board_hp_score += 30.0
+        if stage == 2: board_hp_score += 100.0
+        
+        # Energy score
+        energies = getattr(p, 'energies', [])
+        energy_count = len(energies) if isinstance(energies, list) else energies
+        board_energy_score += energy_count * 50.0  # Encourage attaching energy anywhere!
+
+    score += board_hp_score
+    score += board_energy_score
+    
+    my_active_info = _get_active_hp_info(my_state)
     if my_active_info:
         my_hp, my_max_hp, my_damage = my_active_info
         my_damage_ratio = my_damage / max(my_max_hp, 1)
         score -= my_damage_ratio * 200.0
-
+        
         if my_hp <= 0:
             score -= 500.0  # Our active KO'd
-
+            
         if opp_best_atk > 0 and my_hp <= opp_best_atk:
             score -= 250.0  # We're in KO range
+            
+    # --- 2.5 Bench Damage and Evolution (Dragapult / Deck Specifics) ---
+    _ensure_metadata()
+    # Reward damage placed on opponent's bench
+    opp_bench_dmg = 0
+    for c in (opp_state.bench or []):
+        opp_bench_dmg += getattr(c, 'damage', 0)
+    score += opp_bench_dmg * 2.0  # Every 10 damage = +20 score
+    
+    # Reward getting our Stage 1 / Stage 2 out
+    for c in [my_state.active[0]] + (my_state.bench or []):
+        if not c: continue
+        if c.id in _card_table:
+            stg = getattr(_card_table[c.id], 'stage', None)
+            stg_val = stg.value if hasattr(stg, 'value') else stg
+            if stg_val == 1:
+                score += 30.0  # Stage 1
+            elif stg_val == 2:
+                score += 100.0 # Stage 2
 
     # --- 3. Attack Readiness (turns_to_attack model) ---
     active_shortfall = _min_shortfall_active(my_state)
 
     if active_shortfall == 0:
-        # Active can attack right now
+        # Active can attack right now. Reward scales with attack strength!
+        base_readiness = 150.0 + (our_best_atk * 1.0)
+        
         if opp_active_info and our_best_atk > 0 and opp_active_info[0] <= our_best_atk:
-            score += 500.0  # Can KO now
+            score += base_readiness + 300.0  # Can KO now
         else:
-            score += 300.0  # Can attack now (no KO available)
+            score += base_readiness          # Can attack now
     elif active_shortfall == 1:
-        score += 100.0  # One energy away from attacking
+        # Scale potential damage by a factor so we prefer building big attackers
+        score += 80.0 + (our_best_atk * 0.5)
     elif active_shortfall == 2:
-        score += 30.0   # Two energy away
+        score += 30.0 + (our_best_atk * 0.25)
     else:
-        score -= 200.0  # No attacker is close to ready
+        score -= 100.0  # No attacker is close to ready
 
     # Bench attacker readiness
     bench_shortfall = _min_shortfall_bench(my_state)
@@ -229,6 +281,10 @@ def score_state(state, your_index: int) -> float:
 
     # --- 4. Light Board Development ---
     score += _count_bench_pokemon(my_state) * 10.0
+    
+    # Reward Total Energy on Board
+    total_energy = sum(len(c.energies or []) for c in [my_state.active[0]] + (my_state.bench or []) if c)
+    score += total_energy * 100.0
 
     # --- 5. Hand Quality (very conservative, capped) ---
     my_hand = my_state.handCount or 0
@@ -262,19 +318,24 @@ def score_action_delta(current_state, next_state, your_index: int) -> float:
     if hasattr(next_state, 'yourIndex'):
         turn_ended = (next_state.yourIndex != your_index)
 
-    # ── Missed Attack Guard ──
-    if could_attack_before and turn_ended:
-        delta -= 300.0
-
-    # ── Missed KO Guard ──
-    if could_attack_before and turn_ended:
-        opp_info = _get_active_hp_info(opp_current)
-        our_dmg = _best_available_attack_damage(my_current)
-        if opp_info and our_dmg > 0 and opp_info[0] <= our_dmg:
-            # KO was available — check if opponent survived
-            opp_next_info = _get_active_hp_info(next_state.players[1 - your_index])
-            if opp_next_info and opp_next_info[0] > 0:
-                delta -= 700.0  # Missed KO
+    # ── Combat Rewards (Damage / KO) ──
+    opp_next = next_state.players[1 - your_index]
+    opp_info_before = _get_active_hp_info(opp_current)
+    opp_info_after = _get_active_hp_info(opp_next)
+    
+    opp_id_before = opp_current.active[0].id if opp_current.active and opp_current.active[0] else None
+    opp_id_after = opp_next.active[0].id if opp_next.active and opp_next.active[0] else None
+    
+    dmg_before = opp_info_before[2] if opp_info_before else 0
+    dmg_after = opp_info_after[2] if opp_info_after else 0
+    
+    # Did we deal damage without KOing?
+    if opp_id_before == opp_id_after and dmg_after > dmg_before:
+        delta += (dmg_after - dmg_before) * 5.0  # e.g., 50 damage = +250 score
+        
+    # Did we KO the active?
+    if opp_id_before and (opp_id_before != opp_id_after or not opp_info_after):
+        delta += 1500.0  # Massive reward for scoring a KO!
 
     # ── Attack Enablement Bonus ──
     if not could_attack_before and _can_active_attack(my_next):
@@ -304,5 +365,5 @@ def score_action_delta(current_state, next_state, your_index: int) -> float:
         # If bench is empty/sparse and we didn't bench anything
         if bench_before == 0 and bench_after == 0:
             delta -= 100.0  # No backup attacker
-
+            
     return delta
