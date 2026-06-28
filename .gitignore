@@ -13,3 +13,4 @@ models/
 data/
 *.pdf
 *.csv
+!**/decks/*.csv
