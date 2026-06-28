@@ -32,6 +32,12 @@ docker run --platform linux/amd64 --rm -v "$(pwd):/app" ptcg-runner-phase2 pytho
 docker run --platform linux/amd64 --rm -v "$(pwd):/app" ptcg-runner-phase2 python /app/phase_5/src/eval/ladder.py --agent dragapult --opponents random --games 100
 ```
 
+**Example: Quick Start with Testing Playground (Heuristic vs Random):**
+If you want to run a quick test outside of the main phases, use the testing playground which runs round-robin and vs-random matches for the starter heuristic agents:
+```bash
+docker run --platform linux/amd64 --rm -v "$(pwd):/app" ptcg-runner-phase2 python /app/testing_playground/tournament_runner.py
+```
+
 ### Available Testing Modes & Agents
 
 You can configure matches between any combination of agents using the `--agent` and `--opponent` flags in the tournament scripts (`eval_tournament.py` and `strict_tournament.py`).
