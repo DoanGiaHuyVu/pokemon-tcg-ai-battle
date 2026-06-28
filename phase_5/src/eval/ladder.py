@@ -189,9 +189,9 @@ def run_matchup(agent_name, opp_name, num_games, use_fallback=True):
     return result
 
 
-def print_result(r):
+def print_result(r, agent_name="beam_search"):
     print(f"\n{'='*60}")
-    print(f"  beam_search vs {r['opponent']}  ({r['games']} games)")
+    print(f"  {agent_name} vs {r['opponent']}  ({r['games']} games)")
     print(f"{'='*60}")
     print(f"  Win Rate:        {r['win_rate']}% ± {r['ci_95']}%")
     print(f"  Wins/Losses:     {r['wins']}/{r['losses']}")
@@ -233,7 +233,7 @@ if __name__ == "__main__":
             print(f"Unknown opponent: {opp}, skipping")
             continue
         r = run_matchup(args.agent, opp, args.games)
-        print_result(r)
+        print_result(r, agent_name=args.agent)
         all_results.append(r)
 
     print_ladder_summary(all_results)

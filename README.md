@@ -27,6 +27,11 @@ Because the underlying C++ simulator bindings are compiled for the `ptcg-runner-
 docker run --platform linux/amd64 --rm -v "$(pwd):/app" ptcg-runner-phase2 python /app/phase_5/src/eval/strict_tournament.py --agent neural_v2_search_strict --fallback heuristic --opponent random --games 100
 ```
 
+**Example: Running a Heuristic Agent (e.g., Dragapult) vs Random:**
+```bash
+docker run --platform linux/amd64 --rm -v "$(pwd):/app" ptcg-runner-phase2 python /app/phase_5/src/eval/ladder.py --agent dragapult --opponents random --games 100
+```
+
 ### Available Testing Modes & Agents
 
 You can configure matches between any combination of agents using the `--agent` and `--opponent` flags in the tournament scripts (`eval_tournament.py` and `strict_tournament.py`).
