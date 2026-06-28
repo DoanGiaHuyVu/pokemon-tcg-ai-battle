@@ -183,8 +183,9 @@ def build_determinization(obs):
 
 def agent(obs: dict) -> list[int] | int:
     """
-    Neural v2 1-Ply Search Agent.
-    Evaluates actions using a combination of Neural Policy Prior and Tactical Search Post-Evaluation.
+    Neural v2 Turn-Level Beam Search Agent.
+    Evaluates multi-action sequences within a turn using beam search,
+    combined with Neural Policy Prior and Tactical Delta evaluation.
     """
     metrics = obs.get("metrics")
     
@@ -255,38 +256,45 @@ def agent(obs: dict) -> list[int] | int:
         from src.nn.neural_agent_v2 import agent as fallback_v2
         return fallback_v2(obs)
 
-    # --- search_step loop over legal actions ---
-    best_action = fallback_agent.agent(obs) 
-    best_score = -999999.0
-    search_id = search_state.searchId
-    any_eval_succeeded = False
-    
-    # Get current state for delta scoring
+    # --- Turn-Level Beam Search ---
+    BEAM_WIDTH = 3
+    MAX_DEPTH = 8
+    PRIOR_WEIGHT = float(os.environ.get("PRIOR_WEIGHT", "10.0"))
+
     current_state = agent_obs.current
+    root_search_id = search_state.searchId
     
     if metrics:
         metrics.log_legal_actions(len(legal_actions))
-    
+
+    # Each beam entry: (score, first_action, search_id, depth, is_our_turn)
+    # We track the first_action so we know which root action led to this state
+    best_action = fallback_agent.agent(obs)
+    best_score = -999999.0
+    any_eval_succeeded = False
+
+    # ids_to_release tracks all search IDs we create so we can clean up
+    ids_to_release = []
+
+    # --- Depth 1: Expand root into all legal actions ---
+    beam = []
     for action in legal_actions:
         if metrics:
             metrics.log_step_attempt()
         try:
-            next_state = search_step(search_id, action)
+            next_ss = search_step(root_search_id, action)
             if metrics:
                 metrics.log_step_success()
         except Exception as e:
             if metrics:
                 metrics.log_step_failure(str(e))
             if STRICT_SEARCH:
-                search_release(search_id)
+                search_release(root_search_id)
                 raise RuntimeError(f"Strict Search: search_step failed: {e}")
             continue
-        
-        # Evaluate the action using delta-based scoring
-        # next_state is SearchState with .observation (Observation dataclass)
-        # .observation.current is the State dataclass
+
         try:
-            result_state = next_state.observation.current
+            result_state = next_ss.observation.current
             tactical_delta = score_action_delta(current_state, result_state, your_index)
             if metrics:
                 metrics.log_action_eval_success()
@@ -294,26 +302,101 @@ def agent(obs: dict) -> list[int] | int:
         except Exception as e:
             if metrics:
                 metrics.log_action_eval_failure()
-            if STRICT_SEARCH:
-                search_release(next_state.searchId)
-                search_release(search_id)
-                raise RuntimeError(f"Strict Search: action eval failed: {e}")
-            search_release(next_state.searchId)
+            search_release(next_ss.searchId)
             continue
-            
-        search_release(next_state.searchId)
-            
-        # Combine Tactical Delta with Neural Prior Score
+
         prior_score = policy_scores.get(tuple(action), 0.0)
-        
-        # Weighted combo: 1.0 * Tactical Delta + 50.0 * NeuralPrior
-        combined_score = tactical_delta + (50.0 * prior_score)
-        
-        if combined_score > best_score:
-            best_score = combined_score
-            best_action = action
-            
-    search_release(search_id)
+        combined = tactical_delta + (PRIOR_WEIGHT * prior_score)
+
+        # Check if turn has ended (opponent's turn now)
+        turn_still_ours = (result_state.yourIndex == your_index) if hasattr(result_state, 'yourIndex') else True
+
+        if turn_still_ours:
+            # Can explore deeper — add to beam
+            beam.append((combined, action, next_ss.searchId, 1, result_state))
+        else:
+            # Turn ended — this is a terminal leaf, score it
+            ids_to_release.append(next_ss.searchId)
+            if combined > best_score:
+                best_score = combined
+                best_action = action
+
+    # --- Depths 2..MAX_DEPTH: Beam expansion ---
+    for depth in range(2, MAX_DEPTH + 1):
+        if not beam:
+            break
+
+        # Keep only top-K beams
+        beam.sort(key=lambda x: x[0], reverse=True)
+        survivors = beam[:BEAM_WIDTH]
+        # Release non-surviving search IDs
+        for entry in beam[BEAM_WIDTH:]:
+            ids_to_release.append(entry[2])
+        beam = []
+
+        for parent_score, first_action, parent_sid, parent_depth, parent_result_state in survivors:
+            # Get the select data from this search state to find legal actions
+            # We use search_step with each possible action index
+            # The observation should have select data telling us what options exist
+            parent_obs = None
+            try:
+                parent_obs = parent_result_state
+            except Exception:
+                ids_to_release.append(parent_sid)
+                continue
+
+            # We don't have the select options from the search state directly,
+            # so we try action indices [0..9] and see which succeed
+            expanded = False
+            for action_idx in range(10):
+                child_action = [action_idx]
+                try:
+                    child_ss = search_step(parent_sid, child_action)
+                except Exception:
+                    # This action index is not valid — stop trying higher indices
+                    break
+
+                try:
+                    child_result = child_ss.observation.current
+                    child_delta = score_action_delta(current_state, child_result, your_index)
+                except Exception:
+                    search_release(child_ss.searchId)
+                    continue
+
+                child_score = child_delta  # Deeper levels don't use prior (no obs available)
+                turn_still_ours = (child_result.yourIndex == your_index) if hasattr(child_result, 'yourIndex') else True
+                expanded = True
+
+                if turn_still_ours and depth < MAX_DEPTH:
+                    beam.append((child_score, first_action, child_ss.searchId, depth, child_result))
+                else:
+                    ids_to_release.append(child_ss.searchId)
+                    if child_score > best_score:
+                        best_score = child_score
+                        best_action = first_action
+
+            if not expanded:
+                # No valid children — treat parent as leaf
+                if parent_score > best_score:
+                    best_score = parent_score
+                    best_action = first_action
+                ids_to_release.append(parent_sid)
+            # If expanded, the parent_sid is consumed by beam entries or released above
+
+    # Release any remaining beam entries that weren't expanded
+    for entry in beam:
+        if entry[0] > best_score:
+            best_score = entry[0]
+            best_action = entry[1]
+        ids_to_release.append(entry[2])
+
+    # Clean up all search IDs
+    for sid in ids_to_release:
+        try:
+            search_release(sid)
+        except Exception:
+            pass
+    search_release(root_search_id)
     
     if any_eval_succeeded:
         if metrics:

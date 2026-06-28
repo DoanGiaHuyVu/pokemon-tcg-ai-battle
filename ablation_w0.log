@@ -1,0 +1,48 @@
+
+Starting Tournament: neural_v2_search (Fallback=True) vs random
+Loaded Neural Policy v2 from /app/phase_5/src/nn/../../models/imitation_v2.pt
+--------------------------------------------------
+Tournament Results: neural_v2_search vs random
+Games Played:       50
+Wins:               45
+Losses:             5
+Win Rate:           90.0% ± 8.3% (95% CI)
+Crashes:            0
+Timeouts:           0
+Illegal Actions:    0
+Average Steps:      159.5
+Median Steps:       177.0
+Avg Decision Time:  35.18 ms
+p95 Decision Time:  76.74 ms
+Max Decision Time:  193.72 ms
+--------------------------------------------------
+--------------------------------------------------
+Search Integrity Report
+--------------------------------------------------
+
+[search_begin]
+  Attempts:     4067
+  Successes:    4067
+  Failures:     0
+  Success Rate: 100.0%
+
+[search_step]
+  Attempts:     26676
+  Successes:    26676
+  Failures:     0
+  Success Rate: 100.0%
+
+[action_eval]
+  Successes:    26676
+  Failures:     0
+  Total Legal:  26676
+  Coverage:     100.0%
+
+[decisions]
+  Total:           4243
+  Search-driven:   4067
+  Fallback:        0
+  Trivial (1 opt): 176
+  Multi-select:    0
+  Fallback Rate:   0.0%
+--------------------------------------------------

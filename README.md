@@ -9,6 +9,7 @@ This project contains an AI agent designed for the Pokémon TCG AI Battle Challe
 - `phase_4`: Initial integration of a 1-ply search system combining the neural prior with a tactical evaluation heuristic.
 - `phase_5`: Robust search validation and deterministic simulator bug fixing. Successfully stabilized the search engine (99% API success, 0.9% fallback), exposing the true baseline search win rate of 22% vs. Random.
 - `phase_6`: (Included in `phase_5/` codebase). Strengthened tactical evaluator using an action delta-based approach (KO proximity, missed-attack guards). Improved win rate to 41% vs. Random and achieved 100% search API success.
+- `phase_6.5`: Upgraded to a Turn-Level Beam Search (width 3, depth 8) and `turns_to_attack` simulated damage evaluation. Achieved **100% win rate vs Random** and 6% against the expert Heuristic bot.
 This project uses a hybrid approach, combining a neural network policy for broad strategy with a tactical search system for precise decision-making in the simulator.
 
 ## Setup & Execution
