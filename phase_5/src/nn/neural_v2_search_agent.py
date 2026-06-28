@@ -1,10 +1,19 @@
 import os
 import sys
-import copy
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-from cg.api import search_begin, search_step, search_end, search_release, to_observation_class
-from src.nn.tactical_evaluator import score_state
+from cg.api import search_begin, search_step, search_end, search_release, to_observation_class, all_card_data
+from src.nn.tactical_evaluator import score_state, score_action_delta
+
+# Pre-load card metadata for Basic Pokémon identification
+_basic_pokemon_ids = None
+
+def _get_basic_pokemon_ids():
+    global _basic_pokemon_ids
+    if _basic_pokemon_ids is None:
+        cards = all_card_data()
+        _basic_pokemon_ids = set(c.cardId for c in cards if c.basic)
+    return _basic_pokemon_ids
 from src.nn.neural_agent_v2 import model, parser, my_deck
 import agents.dragapult_agent as fallback_agent
 import torch
@@ -73,92 +82,232 @@ def get_neural_policy_scores(obs):
 
 STRICT_SEARCH = False
 
+def build_determinization(obs):
+    """
+    Build determinized opponent hidden state by:
+    1. Reading exact counts from the simulator (deckCount, handCount, len(prize))
+    2. Collecting all known public opponent cards (active, bench, discard, energy, tools)
+    3. Subtracting known cards from the full decklist to form the unknown pool
+    4. Sampling exact counts from the unknown pool for hand, prize, and deck
+    """
+    state = obs.get("current", {})
+    if not state:
+        return None, None, None, None
+    
+    your_index = state.get("yourIndex", 0)
+    opp_index = 1 - your_index
+    opp = state.get("players", [{}, {}])[opp_index]
+    
+    # Read exact counts the simulator expects
+    true_hand_count = opp.get("handCount", 0) or 0
+    true_deck_count = opp.get("deckCount", 0) or 0
+    true_prize_count = len(opp.get("prize") or [])
+    
+    # Collect all publicly known opponent card IDs
+    known_public_ids = []
+    
+    # Active pokemon and their attached energy/tools
+    for pkmn in (opp.get("active") or []):
+        if isinstance(pkmn, dict):
+            if pkmn.get("id") is not None:
+                known_public_ids.append(pkmn["id"])
+            for e_card in (pkmn.get("energyCards") or []):
+                if isinstance(e_card, dict) and e_card.get("id") is not None:
+                    known_public_ids.append(e_card["id"])
+            for tool in (pkmn.get("tools") or []):
+                if isinstance(tool, dict) and tool.get("id") is not None:
+                    known_public_ids.append(tool["id"])
+            for pre_evo in (pkmn.get("preEvolution") or []):
+                if isinstance(pre_evo, dict) and pre_evo.get("id") is not None:
+                    known_public_ids.append(pre_evo["id"])
+    
+    # Bench pokemon and their attached energy/tools
+    for pkmn in (opp.get("bench") or []):
+        if isinstance(pkmn, dict):
+            if pkmn.get("id") is not None:
+                known_public_ids.append(pkmn["id"])
+            for e_card in (pkmn.get("energyCards") or []):
+                if isinstance(e_card, dict) and e_card.get("id") is not None:
+                    known_public_ids.append(e_card["id"])
+            for tool in (pkmn.get("tools") or []):
+                if isinstance(tool, dict) and tool.get("id") is not None:
+                    known_public_ids.append(tool["id"])
+            for pre_evo in (pkmn.get("preEvolution") or []):
+                if isinstance(pre_evo, dict) and pre_evo.get("id") is not None:
+                    known_public_ids.append(pre_evo["id"])
+    
+    # Discard pile
+    for card in (opp.get("discard") or []):
+        if isinstance(card, dict) and card.get("id") is not None:
+            known_public_ids.append(card["id"])
+    
+    # Build unknown pool: start from the full decklist and remove known public cards
+    unknown_pool = fallback_agent.my_deck.copy()
+    for cid in known_public_ids:
+        if cid in unknown_pool:
+            unknown_pool.remove(cid)
+    
+    # Sample exact counts from the unknown pool
+    needed = true_hand_count + true_prize_count + true_deck_count
+    if needed > len(unknown_pool):
+        # Not enough cards in pool — determinization is impossible
+        return None, None, None, None
+    
+    opp_hand = unknown_pool[:true_hand_count]
+    remaining = unknown_pool[true_hand_count:]
+    
+    opp_prize = remaining[:true_prize_count]
+    remaining = remaining[true_prize_count:]
+    
+    opp_deck = remaining[:true_deck_count]
+    
+    # Determine opponent active prediction
+    # Only needed if the active slot has a face-down (None) card
+    opp_active_raw = opp.get("active") or []
+    needs_active_prediction = (len(opp_active_raw) > 0 and opp_active_raw[0] is None)
+    
+    opp_active = []
+    if needs_active_prediction:
+        # Find a Basic Pokémon card ID from the unknown pool
+        basic_ids = _get_basic_pokemon_ids()
+        for cid in unknown_pool:
+            if cid in basic_ids:
+                opp_active = [cid]
+                break
+        if not opp_active:
+            # No basic pokemon found in pool — determinization cannot proceed
+            return None, None, None, None
+    
+    return opp_hand, opp_prize, opp_deck, opp_active
+
+
 def agent(obs: dict) -> list[int] | int:
     """
     Neural v2 1-Ply Search Agent.
     Evaluates actions using a combination of Neural Policy Prior and Tactical Search Post-Evaluation.
     """
     metrics = obs.get("metrics")
-    if metrics is None:
-        print("WARNING: METRICS IS NONE IN AGENT!")
     
     if "select" not in obs or obs["select"] is None:
         return [0]
         
     if obs["select"].get("maxCount", 1) > 1:
-        if metrics: metrics.log_fallback("maxCount > 1")
+        if metrics:
+            metrics.log_multi_select_skip()
         return fallback_agent.agent(obs)
         
     legal_actions = get_legal_actions(obs)
     
     if len(legal_actions) == 1:
+        if metrics:
+            metrics.log_trivial_decision()
         return legal_actions[0]
 
     policy_scores = get_neural_policy_scores(obs)
     
-    opp_deck = fallback_agent.my_deck.copy()
-    # Safely mock opponent hidden state based on known counts
-    import copy
-    state = obs.get("current", {})
-    if state:
-        p1 = state.get("players", [{}, {}])[1 - state.get("yourIndex", 0)]
-        
-        n_prize = len(p1.get("prize") or [0]*6)
-        opp_prize = opp_deck[:n_prize]
-        opp_deck = opp_deck[n_prize:]
-        
-        n_hand = len(p1.get("hand") or [0]*7)
-        opp_hand = opp_deck[:n_hand]
-        opp_deck = opp_deck[n_hand:]
-    else:
-        opp_prize = opp_deck[:6]
-        opp_hand = opp_deck[6:13]
-        opp_deck = opp_deck[13:]
-        
-    opp_active = []
+    # Build determinization from public information
+    opp_hand, opp_prize, opp_deck, opp_active = build_determinization(obs)
+    
+    if opp_hand is None:
+        # Determinization failed — not enough cards in pool
+        if metrics:
+            metrics.log_fallback_decision("determinization_pool_exhausted")
+        if STRICT_SEARCH:
+            raise RuntimeError("Strict Search: determinization pool exhausted")
+        from src.nn.neural_agent_v2 import agent as fallback_v2
+        return fallback_v2(obs)
+    
+    # --- search_begin ---
+    if metrics:
+        metrics.log_begin_attempt()
     
     try:
         agent_obs = to_observation_class(obs)
+        your_index = agent_obs.current.yourIndex
+        
+        # Build your own hidden state prediction
+        my_state = obs["current"]["players"][your_index]
+        my_deck_count = my_state.get("deckCount", 0) or 0
+        my_prize_count = len(my_state.get("prize") or [])
+        
+        # For your own deck/prize, use your known cards from your hand etc.
+        your_deck_pred = my_deck[:my_deck_count]
+        your_prize_pred = my_deck[:my_prize_count]
+        
         search_state = search_begin(
             agent_observation=agent_obs,
-            your_deck=my_deck, 
-            your_prize=my_deck[:6],
+            your_deck=your_deck_pred, 
+            your_prize=your_prize_pred,
             opponent_deck=opp_deck,
             opponent_prize=opp_prize,
             opponent_hand=opp_hand,
             opponent_active=opp_active,
             manual_coin=0
         )
+        if metrics:
+            metrics.log_begin_success()
     except Exception as e:
-        if metrics: metrics.log_search_exception(f"search_begin: {str(e)}")
+        if metrics:
+            metrics.log_begin_failure(str(e))
+            metrics.log_fallback_decision(f"search_begin: {e}")
         if STRICT_SEARCH:
-            raise RuntimeError(f"Strict Search Exception: {e}")
-        # Fallback to pure policy if search init fails
+            raise RuntimeError(f"Strict Search: search_begin failed: {e}")
         from src.nn.neural_agent_v2 import agent as fallback_v2
         return fallback_v2(obs)
 
+    # --- search_step loop over legal actions ---
     best_action = fallback_agent.agent(obs) 
     best_score = -999999.0
     search_id = search_state.searchId
+    any_eval_succeeded = False
+    
+    # Get current state for delta scoring
+    current_state = agent_obs.current
+    
+    if metrics:
+        metrics.log_legal_actions(len(legal_actions))
     
     for action in legal_actions:
-        if metrics: metrics.log_search_attempt()
+        if metrics:
+            metrics.log_step_attempt()
         try:
             next_state = search_step(search_id, action)
-            if metrics: metrics.log_search_success()
-            tactical_score = score_state(next_state.state, agent_obs.current.yourIndex)
-            search_release(next_state.searchId)
+            if metrics:
+                metrics.log_step_success()
         except Exception as e:
-            if metrics: metrics.log_search_exception(f"search_step: {str(e)}")
+            if metrics:
+                metrics.log_step_failure(str(e))
             if STRICT_SEARCH:
-                raise RuntimeError(f"Strict Search Exception: {e}")
+                search_release(search_id)
+                raise RuntimeError(f"Strict Search: search_step failed: {e}")
+            continue
+        
+        # Evaluate the action using delta-based scoring
+        # next_state is SearchState with .observation (Observation dataclass)
+        # .observation.current is the State dataclass
+        try:
+            result_state = next_state.observation.current
+            tactical_delta = score_action_delta(current_state, result_state, your_index)
+            if metrics:
+                metrics.log_action_eval_success()
+            any_eval_succeeded = True
+        except Exception as e:
+            if metrics:
+                metrics.log_action_eval_failure()
+            if STRICT_SEARCH:
+                search_release(next_state.searchId)
+                search_release(search_id)
+                raise RuntimeError(f"Strict Search: action eval failed: {e}")
+            search_release(next_state.searchId)
             continue
             
-        # Combine Tactical Score with Neural Prior Score
+        search_release(next_state.searchId)
+            
+        # Combine Tactical Delta with Neural Prior Score
         prior_score = policy_scores.get(tuple(action), 0.0)
         
-        # Weighted combo: 1.0 * Tactical + 100.0 * NeuralPrior
-        combined_score = tactical_score + (100.0 * prior_score)
+        # Weighted combo: 1.0 * Tactical Delta + 50.0 * NeuralPrior
+        combined_score = tactical_delta + (50.0 * prior_score)
         
         if combined_score > best_score:
             best_score = combined_score
@@ -166,5 +315,11 @@ def agent(obs: dict) -> list[int] | int:
             
     search_release(search_id)
     
-    if metrics: metrics.log_decision_source(is_neural=True)
+    if any_eval_succeeded:
+        if metrics:
+            metrics.log_search_decision()
+    else:
+        if metrics:
+            metrics.log_fallback_decision("all_search_steps_failed")
+    
     return best_action
